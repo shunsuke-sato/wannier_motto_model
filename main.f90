@@ -226,6 +226,7 @@ subroutine dt_evolve(it)
   integer,intent(in) :: it
   real(8) :: eps_t, kxt(nkx), dip_t(nkx)
   real(8) :: vpot_t
+  integer :: ikx
 
 ! apply E_probe field for time, t
   if(Eprobe(it) /=0d0)then
