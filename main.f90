@@ -18,11 +18,12 @@ module global_variables
   real(8) :: eps_cutoff
   real(8) :: mu_mass
   real(8) :: v0_coulomb
-  real(8) :: eps_gap
+  real(8) :: eps_gap, pvc
   real(8),allocatable :: kx0(:)
   real(8),allocatable :: ham0(:,:), ham_t(:,:)
   real(8),allocatable :: eigval_ham0(:),eigvec_ham0(:,:)
   complex(8),allocatable :: zpsi(:)
+  real(8),allocatable :: epsk_t(:)
 
 ! time propagation
   real(8) :: Tprop, dt
@@ -61,6 +62,7 @@ subroutine input
   nkx = 256+1
 
   eps_gap = 40d0*ev
+  pvc = 1d0
   v0_coulomb = 1d0
 
 ! lasers
@@ -150,9 +152,23 @@ end subroutine preparation
 subroutine time_propagation
   use global_variables
   implicit none
+  integer :: it
+  real(8),allocatable :: jt(:)
 
+  allocate(jt(nt+1))
 
   call init_laser
+! init_wf
+  zpsi = 0d0
+
+  jt(0) = pvc*sum(zpsi)*dkx/(2d0*pi)
+  
+  do it = 0, nt
+
+    call dt_evolve(it)
+    jt(it+1) = pvc*sum(zpsi)*dkx
+
+  end do
   
 
 end subroutine time_propagation
@@ -204,6 +220,69 @@ subroutine init_laser
 
 end subroutine init_laser
 !-------------------------------------------------------------------------------
+subroutine dt_evolve(it)
+  use global_variables
+  implicit none
+  integer,intent(in) :: it
+  real(8) :: eps_t, kxt(nkx), dip_t(nkx)
+  real(8) :: vpot_t
+
+! apply E_probe field for time, t
+  if(Eprobe(it) /=0d0)then
+
+    kxt = kx0 + Apump(it)
+    do ikx = 1, nkx
+      eps_t = eps_gap + 0.5d0*kxt(ikx)**2/mu_mass
+      dip_t(ikx) = pvc*Eprobe(it)/eps_t
+    end do
+
+    zpsi = zpsi -zI*0.5d0*dt*dip_t
+
+  end if
+
+! apply A_pump field for time, t
+  if(Apump(it) /=0d0)then
+
+    eps_t = 0.5d0*Apump(it)**2/mu_mass
+    do ikx= 1, nkx
+      vpot_t = kx0(ikx)*Apump(it)/mu_mass + eps_t
+      zpsi(ikx) = exp(-zI*0.5d0*dt*vpot_t)*zpsi(ikx)
+    end do
+
+  end if
+
+
+! apply bare Hamiltonian for propagation, t-> t+dt
+  zpsi = matmul(transpose(eigvec_ham0),zpsi)
+  zpsi = exp(-zI*dt*eigval_ham0)*zpsi
+  zpsi = matmul(eigvec_ham0,zpsi)
+
+! apply A_pump field for time, t+dt
+  if(Apump(it+1) /=0d0)then
+
+    eps_t = 0.5d0*Apump(it+1)**2/mu_mass
+    do ikx= 1, nkx
+      vpot_t = kx0(ikx)*Apump(it+1)/mu_mass + eps_t
+      zpsi(ikx) = exp(-zI*0.5d0*dt*vpot_t)*zpsi(ikx)
+    end do
+
+  end if
+
+! apply E_probe field for time, t
+  if(Eprobe(it+1) /=0d0)then
+
+    kxt = kx0 + Apump(it+1)
+    do ikx = 1, nkx
+      eps_t = eps_gap + 0.5d0*kxt(ikx)**2/mu_mass
+      dip_t(ikx) = pvc*Eprobe(it+1)/eps_t
+    end do
+
+    zpsi = zpsi -zI*0.5d0*dt*dip_t
+
+  end if
+
+
+end subroutine dt_evolve
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
