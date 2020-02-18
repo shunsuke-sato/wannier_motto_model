@@ -58,10 +58,12 @@ subroutine input
   implicit none
 
   eps_cutoff = 15d0*ev
-  mu_mass = 1d0
+  mu_mass = 0.24d0 ! light electron
+!  mu_mass = 0.58d0 ! heavy electron
+
   nkx = 256+1
 
-  eps_gap = 40d0*ev
+  eps_gap = 55.5d0*ev
   pvc = 1d0
   v0_coulomb = 1d0
 
