@@ -171,7 +171,11 @@ subroutine time_propagation
     jt(it+1) = pvc*sum(zpsi)*dkx
 
   end do
-  
+  open(20,file="Ac_Et_jt.out")
+  do it = 0, nt
+    write(20,"(999e26.16e3)")dt*it, Apump(it), Eprobe(it), jt(it)
+  end do
+  close(20)
 
 end subroutine time_propagation
 !-------------------------------------------------------------------------------
