@@ -65,7 +65,7 @@ subroutine input
 
   eps_gap = 55.5d0*ev
   pvc = 1d0
-  v0_coulomb = 1d0
+  v0_coulomb = 0d0
 
 ! lasers
   Tpump_fs = 20d0
@@ -74,7 +74,7 @@ subroutine input
   omega_probe_ev = 40d0
   Tdelay_fs = 0d0
 
-  Tprop_fs = 10d0
+  Tprop_fs = 100d0
   dt = 0.08d0
 
 
@@ -88,6 +88,7 @@ subroutine input
   
   Tprop = Tprop_fs*fs
   nt = aint(Tprop/dt)+1
+  write(*,*)"nt=",nt
 
 end subroutine input
 !-------------------------------------------------------------------------------
@@ -171,6 +172,8 @@ subroutine time_propagation
     jt(it+1) = pvc*sum(zpsi)*dkx
   end do
   open(20,file="Ac_Et_jt.out")
+  write(20,"(A,2x,I9)")"#nt = ",nt
+  write(20,"(A,2x,e26.16e3)")"#dtt = ",dt
   do it = 0, nt
     write(20,"(999e26.16e3)")dt*it, Apump(it), Eprobe(it), jt(it)
   end do
@@ -242,7 +245,7 @@ subroutine dt_evolve(it)
       dip_t(ikx) = pvc*Eprobe(it)/eps_t
     end do
 
-    zpsi = zpsi -zI*0.5d0*dt*dip_t
+    zpsi = zpsi -0.5d0*dt*dip_t
 
   end if
 
@@ -283,7 +286,7 @@ subroutine dt_evolve(it)
       dip_t(ikx) = pvc*Eprobe(it+1)/eps_t
     end do
 
-    zpsi = zpsi -zI*0.5d0*dt*dip_t
+    zpsi = zpsi -0.5d0*dt*dip_t
 
   end if
 
