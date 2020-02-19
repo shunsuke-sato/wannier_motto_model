@@ -12,6 +12,7 @@
 
 # Executable files
 test
+ft
 
 # Libraries
 *.lib
