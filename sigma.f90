@@ -5,7 +5,7 @@ program main
   real(8),parameter :: ev = 1d0/27.2114d0
   real(8),parameter :: wi = 45d0*ev, wf = 65d0*ev
   real(8),parameter :: dw = (wf-wi)/nw
-  real(8),parameter :: gamma = 0.3d0*ev
+  real(8),parameter :: gamma = 0.1d0*ev
   complex(8),parameter :: zi = (0d0, 1d0)
   real(8) :: tt(0:nt),Apump(0:Nt),Eprobe(0:nt),jt(0:nt)
   real(8) :: ww, dt

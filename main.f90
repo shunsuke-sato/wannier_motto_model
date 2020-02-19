@@ -61,11 +61,11 @@ subroutine input
   mu_mass = 0.24d0 ! light electron
 !  mu_mass = 0.58d0 ! heavy electron
 
-  nkx = 256+1
+  nkx = 512+1
 
   eps_gap = 55.5d0*ev
   pvc = 1d0
-  v0_coulomb = 0d0
+  v0_coulomb = 0.1673d0
 
 ! lasers
   Tpump_fs = 20d0
