@@ -245,7 +245,7 @@ subroutine dt_evolve(it)
       dip_t(ikx) = pvc*Eprobe(it)/eps_t
     end do
 
-    zpsi = zpsi -0.5d0*dt*dip_t
+    zpsi = zpsi +0.5d0*dt*dip_t
 
   end if
 
@@ -286,7 +286,7 @@ subroutine dt_evolve(it)
       dip_t(ikx) = pvc*Eprobe(it+1)/eps_t
     end do
 
-    zpsi = zpsi -0.5d0*dt*dip_t
+    zpsi = zpsi +0.5d0*dt*dip_t
 
   end if
 
