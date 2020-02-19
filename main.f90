@@ -74,7 +74,7 @@ subroutine input
   omega_probe_ev = 40d0
   Tdelay_fs = 0d0
 
-  Tprop_fs = 100d0
+  Tprop_fs = 10d0
   dt = 0.08d0
 
 
@@ -157,7 +157,7 @@ subroutine time_propagation
   integer :: it
   real(8),allocatable :: jt(:)
 
-  allocate(jt(nt+1))
+  allocate(jt(0:nt+1))
 
   call init_laser
 ! init_wf
@@ -169,7 +169,6 @@ subroutine time_propagation
 
     call dt_evolve(it)
     jt(it+1) = pvc*sum(zpsi)*dkx
-
   end do
   open(20,file="Ac_Et_jt.out")
   do it = 0, nt
