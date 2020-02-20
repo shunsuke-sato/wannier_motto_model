@@ -164,12 +164,12 @@ subroutine time_propagation
 ! init_wf
   zpsi = 0d0
 
-  jt(0) = pvc*sum(zpsi)*dkx/(2d0*pi)
+  jt(0) = 2d0*pvc*sum(zpsi)*dkx/(2d0*pi)
   
   do it = 0, nt
 
     call dt_evolve(it)
-    jt(it+1) = pvc*sum(zpsi)*dkx
+    jt(it+1) = 2d0*pvc*sum(zpsi)*dkx/(2d0*pi)
   end do
   open(20,file="Ac_Et_jt.out")
   write(20,"(A,2x,I9)")"#nt = ",nt
