@@ -38,6 +38,9 @@ module global_variables
   real(8) :: omega_probe_ev, omega_probe
   real(8) :: Tdelay_fs, Tdelay
   real(8) :: A0_pump, E0_probe
+  integer,parameter :: N_FIELD_TYPE_LASER_PULSE = 0
+  integer,parameter :: N_FIELD_TYPE_IMPULSIVE_KICK = 1
+  integer :: n_field_type = N_FIELD_TYPE_LASER_PULSE
   
 
 end module global_variables
@@ -161,8 +164,8 @@ subroutine time_propagation
   allocate(jt(0:nt+1))
 
   call init_laser
-! init_wf
-  zpsi = 0d0
+  call init_wf
+
 
   jt(0) = 2d0*pvc*sum(zpsi)*dkx/(2d0*pi)
   
@@ -201,7 +204,9 @@ subroutine init_laser
   
   Apump = 0d0
   Eprobe = 0d0
-
+  if(n_field_type /= N_FIELD_TYPE_LASER_PULSE)then
+    return
+  end if
 
   do it = 0, nt+1
     tt = dt*it
@@ -227,6 +232,22 @@ subroutine init_laser
   
 
 end subroutine init_laser
+!-------------------------------------------------------------------------------
+subroutine init_wf
+  use global_variables
+  implicit none
+  integer :: ikx
+  real(8) :: eps_t
+
+  zpsi = 0d0
+  if(n_field_type == N_FIELD_TYPE_IMPULSIVE_KICK)then
+    do ikx = 1, nkx
+      eps_t = eps_gap + 0.5d0*kx0(ikx)**2/mu_mass
+      zpsi(ikx) = pvc/eps_t
+    end do
+  end if
+
+end subroutine init_wf
 !-------------------------------------------------------------------------------
 subroutine dt_evolve(it)
   use global_variables
