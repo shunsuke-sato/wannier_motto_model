@@ -40,7 +40,7 @@ program main
 !      zEw = zEw + zfact*Eprobe(it)
     end do
     zjw = zjw*dt
-    zEw = 1d0*dt
+    zEw = 1d0
     zsigma = zjw/zEw
     write(30,"(999e26.16e3)")ww,zsigma, abs(zEw)
 
