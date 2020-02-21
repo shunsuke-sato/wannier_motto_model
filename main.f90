@@ -38,9 +38,10 @@ module global_variables
   real(8) :: omega_probe_ev, omega_probe
   real(8) :: Tdelay_fs, Tdelay
   real(8) :: A0_pump, E0_probe
+  integer :: n_field_type
   integer,parameter :: N_FIELD_TYPE_LASER_PULSE = 0
   integer,parameter :: N_FIELD_TYPE_IMPULSIVE_KICK = 1
-  integer :: n_field_type = N_FIELD_TYPE_LASER_PULSE
+
   
 
 end module global_variables
@@ -91,6 +92,11 @@ subroutine input
   
   Tprop = Tprop_fs*fs
   nt = aint(Tprop/dt)+1
+
+!  n_field_type = N_FIELD_TYPE_LASER_PULSE
+  n_field_type = N_FIELD_TYPE_IMPULSIVE_KICK
+
+
   write(*,*)"nt=",nt
 
 end subroutine input
