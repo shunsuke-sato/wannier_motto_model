@@ -72,13 +72,13 @@ subroutine input
   v0_coulomb = 0.1673d0
 
 ! lasers
-  Tpump_fs = 20d0
+  Tpump_fs = 16d0
   Tprobe_fs = 1d0
   omega_pump_ev = 1.55d0
-  omega_probe_ev = 40d0
+  omega_probe_ev = 55d0
   Tdelay_fs = 0d0
 
-  Tprop_fs = 100d0
+  Tprop_fs = 150d0
   dt = 0.08d0
 
 
@@ -93,8 +93,8 @@ subroutine input
   Tprop = Tprop_fs*fs
   nt = aint(Tprop/dt)+1
 
-!  n_field_type = N_FIELD_TYPE_LASER_PULSE
-  n_field_type = N_FIELD_TYPE_IMPULSIVE_KICK
+  n_field_type = N_FIELD_TYPE_LASER_PULSE
+!  n_field_type = N_FIELD_TYPE_IMPULSIVE_KICK
 
 
   write(*,*)"nt=",nt
