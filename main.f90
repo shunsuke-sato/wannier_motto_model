@@ -79,7 +79,7 @@ subroutine input
   Tdelay_fs = 0d0
 
   Tprop_fs = 150d0
-  dt = 0.08d0
+  dt = 0.16d0
 
 
   A0_pump = 1d-2
