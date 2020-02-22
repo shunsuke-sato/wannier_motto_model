@@ -1,0 +1,4 @@
+1d-2   1d-4  ! A0_pump, E0_probe
+16d0   1d0   ! Tpump_fs, Tprobe_fs
+1.55d0  55d0   !omega_pump_ev, omega_probe_ev
+0d0          ! Tdelay_fs

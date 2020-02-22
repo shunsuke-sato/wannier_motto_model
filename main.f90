@@ -72,18 +72,22 @@ subroutine input
   v0_coulomb = 0.1673d0
 
 ! lasers
-  Tpump_fs = 16d0
-  Tprobe_fs = 1d0
-  omega_pump_ev = 1.55d0
-  omega_probe_ev = 55d0
-  Tdelay_fs = 0d0
+!  A0_pump = 1d-2
+!  E0_probe = 1d-4
+!  Tpump_fs = 16d0
+!  Tprobe_fs = 1d0
+!  omega_pump_ev = 1.55d0
+!  omega_probe_ev = 55d0
+!  Tdelay_fs = 0d0
 
   Tprop_fs = 150d0
   dt = 0.16d0
 
 
-  A0_pump = 1d-2
-  E0_probe = 1d-4
+  read(*,*)A0_pump,E0_probe
+  read(*,*)Tpump_fs,Tprobe_fs
+  read(*,*)omega_pump_ev, omega_probe
+  read(*,*)Tdelay_fs
 
 
   kx_max = sqrt(2d0*mu_mass*eps_cutoff)
