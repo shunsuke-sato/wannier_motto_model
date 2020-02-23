@@ -86,7 +86,7 @@ subroutine input
 
   read(*,*)A0_pump,E0_probe
   read(*,*)Tpump_fs,Tprobe_fs
-  read(*,*)omega_pump_ev, omega_probe
+  read(*,*)omega_pump_ev, omega_probe_ev
   read(*,*)Tdelay_fs
 
 
