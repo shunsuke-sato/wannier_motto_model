@@ -223,7 +223,7 @@ subroutine init_laser
 ! A-pump
     xx = tt + t_offset
     if(abs(xx)<=0.5d0*Tpump)then
-      Apump(it) = A0_pump*cos(omega_pump*xx) *cos(pi*xx/Tpump)**2
+      Apump(it) = A0_pump*sin(omega_pump*xx) *cos(pi*xx/Tpump)**2
     end if
 
 ! Eprobe
