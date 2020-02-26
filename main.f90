@@ -168,9 +168,8 @@ end subroutine preparation
 subroutine time_propagation
   use global_variables
   implicit none
-  integer :: it,ik
+  integer :: it
   real(8),allocatable :: jt(:)
-  real(8) :: jt_t
 
   allocate(jt(0:nt+1))
 
@@ -178,19 +177,12 @@ subroutine time_propagation
   call init_wf
 
 
-  it = 0
-  call calc_current(jt_t, it)
-  jt(it) = jt_t
-!  jt(0) = 2d0*pvc*sum(zpsi)*dkx/(2d0*pi)
+  jt(0) = 2d0*pvc*sum(zpsi)*dkx/(2d0*pi)
   
   do it = 0, nt
 
     call dt_evolve(it)
-
-    call calc_current(jt_t, it+1)
-    jt(it+1) = jt_t
-!    jt(it+1) = 2d0*pvc*sum(zpsi)*dkx/(2d0*pi)
-
+    jt(it+1) = 2d0*pvc*sum(zpsi)*dkx/(2d0*pi)
   end do
   open(20,file="Ac_Et_jt.out")
   write(20,"(A,2x,I9)")"#nt = ",nt
@@ -231,7 +223,7 @@ subroutine init_laser
 ! A-pump
     xx = tt + t_offset
     if(abs(xx)<=0.5d0*Tpump)then
-      Apump(it) = A0_pump*sin(omega_pump*xx) *cos(pi*xx/Tpump)**2
+      Apump(it) = A0_pump*cos(omega_pump*xx) *cos(pi*xx/Tpump)**2
     end if
 
 ! Eprobe
@@ -255,14 +247,13 @@ subroutine init_wf
   use global_variables
   implicit none
   integer :: ikx
-  real(8) :: eps_t, eps_ph
+  real(8) :: eps_t
 
   zpsi = 0d0
   if(n_field_type == N_FIELD_TYPE_IMPULSIVE_KICK)then
     do ikx = 1, nkx
-      eps_ph = 0.5d0*kx0(ikx)**2/mu_mass
-      eps_t = eps_gap + eps_ph
-      zpsi(ikx) = pvc*sqrt(erf(eps_ph))/eps_t
+      eps_t = eps_gap + 0.5d0*kx0(ikx)**2/mu_mass
+      zpsi(ikx) = pvc/eps_t
     end do
   end if
 
@@ -272,8 +263,8 @@ subroutine dt_evolve(it)
   use global_variables
   implicit none
   integer,intent(in) :: it
-  real(8) :: eps_t, eps_ph, kxt(nkx), dip_t(nkx)
-  real(8) :: vpot_t, pvc_t
+  real(8) :: eps_t, kxt(nkx), dip_t(nkx)
+  real(8) :: vpot_t
   integer :: ikx
 
 ! apply E_probe field for time, t
@@ -281,10 +272,8 @@ subroutine dt_evolve(it)
 
     kxt = kx0 + Apump(it)
     do ikx = 1, nkx
-      eps_ph = 0.5d0*kxt(ikx)**2/mu_mass
-      eps_t = eps_gap + eps_ph
-      pvc_t = pvc*sqrt(erf(eps_ph))
-      dip_t(ikx) = pvc_t*Eprobe(it)/eps_t
+      eps_t = eps_gap + 0.5d0*kxt(ikx)**2/mu_mass
+      dip_t(ikx) = pvc*Eprobe(it)/eps_t
     end do
 
     zpsi = zpsi +0.5d0*dt*dip_t
@@ -324,10 +313,8 @@ subroutine dt_evolve(it)
 
     kxt = kx0 + Apump(it+1)
     do ikx = 1, nkx
-      eps_ph = 0.5d0*kxt(ikx)**2/mu_mass
-      eps_t = eps_gap + eps_ph
-      pvc_t = pvc*sqrt(erf(eps_ph))
-      dip_t(ikx) = pvc_t*Eprobe(it)/eps_t
+      eps_t = eps_gap + 0.5d0*kxt(ikx)**2/mu_mass
+      dip_t(ikx) = pvc*Eprobe(it+1)/eps_t
     end do
 
     zpsi = zpsi +0.5d0*dt*dip_t
@@ -337,28 +324,6 @@ subroutine dt_evolve(it)
 
 end subroutine dt_evolve
 !-------------------------------------------------------------------------------
-subroutine calc_current(jt_t, it)
-  use global_variables
-  implicit none
-  real(8),intent(out) :: jt_t
-  integer,intent(in) :: it
-  real(8) :: pvc_t, eps_t, kxt(nkx)
-  integer :: ikx
-
-
-  kxt = kx0 + Apump(it)
-  jt_t = 0d0
-  do ikx = 1, nkx
-    eps_t = 0.5d0*kxt(ikx)**2/mu_mass
-    pvc_t = pvc*sqrt(erf(eps_t))
-    jt_t = jt_t + pvc_t*zpsi(ikx)
-
-  end do
-  jt_t = 2d0*jt_t*dkx/(2d0*pi)
-
-
-
-end subroutine calc_current
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
