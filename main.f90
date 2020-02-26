@@ -67,7 +67,7 @@ subroutine input
 
   nkx = 512+1
 
-  eps_gap = 55.1d0*ev
+  eps_gap = 55.5d0*ev
   pvc = 1d0
   v0_coulomb = 0.1673d0
 
