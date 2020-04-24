@@ -67,9 +67,9 @@ subroutine input
 
   nkx = 512+1
 
-  eps_gap = 55.5d0*ev
+  eps_gap = 55.8d0*ev
   pvc = 1d0
-  v0_coulomb = 0.1673d0
+  v0_coulomb = 0.187d0
 
 ! lasers
 !  A0_pump = 1d-2
