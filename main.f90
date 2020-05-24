@@ -41,6 +41,10 @@ module global_variables
   integer :: n_field_type
   integer,parameter :: N_FIELD_TYPE_LASER_PULSE = 0
   integer,parameter :: N_FIELD_TYPE_IMPULSIVE_KICK = 1
+  integer :: n_init_wf
+  integer,parameter :: N_INIT_WF_GS = 0
+  integer,parameter :: N_INIT_WF_ECITON_1s = 1
+
 
   
 
@@ -180,7 +184,9 @@ subroutine time_propagation
   jt(0) = 2d0*pvc*sum(zpsi)*dkx/(2d0*pi)
   
   do it = 0, nt
-
+    if(n_init_wf == N_INIT_WF_ECITON_1s)then
+      if(mod(it,100)==0)call compute_real_space_wf(it)
+    end if
     call dt_evolve(it)
     jt(it+1) = 2d0*pvc*sum(zpsi)*dkx/(2d0*pi)
   end do
@@ -247,7 +253,7 @@ subroutine init_wf
   use global_variables
   implicit none
   integer :: ikx
-  real(8) :: eps_t
+  real(8) :: eps_t, ss
 
   zpsi = 0d0
   if(n_field_type == N_FIELD_TYPE_IMPULSIVE_KICK)then
@@ -255,6 +261,12 @@ subroutine init_wf
       eps_t = eps_gap + 0.5d0*kx0(ikx)**2/mu_mass
       zpsi(ikx) = pvc/eps_t
     end do
+  end if
+
+  if(n_init_wf == N_INIT_WF_ECITON_1s)then
+    zpsi = eigvec_ham0(:,1)
+    ss = sum(abs(zpsi)**2)*dkx
+    zpsi = zpsi/sqrt(ss)
   end if
 
 end subroutine init_wf
@@ -323,6 +335,46 @@ subroutine dt_evolve(it)
 
 
 end subroutine dt_evolve
+!-------------------------------------------------------------------------------
+subroutine compute_real_space_wf(int_in)
+  use global_variables
+  implicit none
+  integer,intent(in) :: int_in
+  integer :: ix, nx, ikx
+  real(8) :: length_x, dx, xx, rr
+  character(256) :: cit, cfilename
+  complex(8),allocatable :: zpsi_rs(:)
+  complex(8) :: zs
+
+
+  length_x = 50d0
+  nx = 500
+  dx = length_x/nx
+
+  allocate(zpsi_rs(-nx:nx))
+
+  write(cit,"(I7.7)")int_in
+  cfilename = trim(cit)//'_rho_exciton.out'
+  
+  open(201,file=cfilename)
+  do ix = -nx, nx
+    xx = dx*ix
+
+    zs = 0d0
+    do ikx = 1, nkx
+      zs = zs + zpsi(ikx)*exp(zi*kx0(ikx))
+    end do
+
+    zs = zs*dkx
+    rr = abs(zs)**2
+    write(201,"(999e26.16e3)")xx,rr
+
+  end do
+  close(201)
+
+
+
+end subroutine compute_real_space_wf
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
