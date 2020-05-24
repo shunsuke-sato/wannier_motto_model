@@ -362,10 +362,10 @@ subroutine compute_real_space_wf(int_in)
 
     zs = 0d0
     do ikx = 1, nkx
-      zs = zs + zpsi(ikx)*exp(zi*kx0(ikx))
+      zs = zs + zpsi(ikx)*exp(zi*kx0(ikx)*xx)
     end do
 
-    zs = zs*dkx
+    zs = zs*dkx/(2d0*pi)
     rr = abs(zs)**2
     write(201,"(999e26.16e3)")xx,rr
 
