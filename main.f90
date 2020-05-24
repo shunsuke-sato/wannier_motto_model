@@ -41,10 +41,10 @@ module global_variables
   integer :: n_field_type
   integer,parameter :: N_FIELD_TYPE_LASER_PULSE = 0
   integer,parameter :: N_FIELD_TYPE_IMPULSIVE_KICK = 1
-  integer :: n_init_wf
+
   integer,parameter :: N_INIT_WF_GS = 0
   integer,parameter :: N_INIT_WF_ECITON_1s = 1
-
+  integer :: n_init_wf = N_INIT_WF_ECITON_1s
 
   
 
