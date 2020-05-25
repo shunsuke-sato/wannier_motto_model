@@ -190,8 +190,8 @@ subroutine time_propagation
   do it = 0, nt
     if(n_init_wf == N_INIT_WF_ECITON_1s)then
       if(mod(it,100)==0)call compute_real_space_wf(it,x_ave,x2_ave)
-      Etmp = -0.5d0*(Apump(it+1)-Apump(it-1))/dt
-      write(202,"(999e26.16e3)")dt*it,Etmp,x_ave,x2_ave
+      Et_tmp = -0.5d0*(Apump(it+1)-Apump(it-1))/dt
+      write(202,"(999e26.16e3)")dt*it,Et_tmp,x_ave,x2_ave
     end if
     call dt_evolve(it)
     jt(it+1) = 2d0*pvc*sum(zpsi)*dkx/(2d0*pi)
@@ -379,7 +379,7 @@ subroutine compute_real_space_wf(int_in, x_ave, x2_ave)
     zs = zs*dkx/(2d0*pi)
     rr = abs(zs)**2
 !    write(201,"(999e26.16e3)")xx,rr
-    rho_rs(ix)
+    rho_rs(ix) = rr
 
   end do
 
