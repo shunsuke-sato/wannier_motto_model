@@ -45,7 +45,7 @@ module global_variables
   integer,parameter :: N_INIT_WF_GS = 0
   integer,parameter :: N_INIT_WF_ECITON_1s = 1
   integer :: n_init_wf = N_INIT_WF_ECITON_1s
-
+  real(8),allocatable :: rho_rs_gs(:)
   
 
 end module global_variables
@@ -173,6 +173,7 @@ subroutine time_propagation
   use global_variables
   implicit none
   integer :: it
+  real(8) :: x_ave, x2_ave, Et_tmp
   real(8),allocatable :: jt(:)
 
   allocate(jt(0:nt+1))
@@ -182,10 +183,15 @@ subroutine time_propagation
 
 
   jt(0) = 2d0*pvc*sum(zpsi)*dkx/(2d0*pi)
-  
+  if(n_init_wf == N_INIT_WF_ECITON_1s)then  
+    open(202,file='exciton_td.out')
+  end if
+
   do it = 0, nt
     if(n_init_wf == N_INIT_WF_ECITON_1s)then
-      if(mod(it,100)==0)call compute_real_space_wf(it)
+      if(mod(it,100)==0)call compute_real_space_wf(it,x_ave,x2_ave)
+      Etmp = -0.5d0*(Apump(it+1)-Apump(it-1))/dt
+      write(202,"(999e26.16e3)")dt*it,Etmp,x_ave,x2_ave
     end if
     call dt_evolve(it)
     jt(it+1) = 2d0*pvc*sum(zpsi)*dkx/(2d0*pi)
@@ -197,6 +203,10 @@ subroutine time_propagation
     write(20,"(999e26.16e3)")dt*it, Apump(it), Eprobe(it), jt(it)
   end do
   close(20)
+
+  if(n_init_wf == N_INIT_WF_ECITON_1s)then  
+    close(202)
+  end if
 
 end subroutine time_propagation
 !-------------------------------------------------------------------------------
@@ -336,14 +346,16 @@ subroutine dt_evolve(it)
 
 end subroutine dt_evolve
 !-------------------------------------------------------------------------------
-subroutine compute_real_space_wf(int_in)
+subroutine compute_real_space_wf(int_in, x_ave, x2_ave)
   use global_variables
   implicit none
   integer,intent(in) :: int_in
+  real(8),intent(out) :: x_ave, x2_ave
   integer :: ix, nx, ikx
-  real(8) :: length_x, dx, xx, rr
+  real(8) :: length_x, dx, xx, rr, ss
   character(256) :: cit, cfilename
   complex(8),allocatable :: zpsi_rs(:)
+  real(8),allocatable :: rho_rs(:)
   complex(8) :: zs
 
 
@@ -352,11 +364,10 @@ subroutine compute_real_space_wf(int_in)
   dx = length_x/nx
 
   allocate(zpsi_rs(-nx:nx))
+  allocate(rho_rs(-nx:nx))
+    
 
-  write(cit,"(I7.7)")int_in
-  cfilename = trim(cit)//'_rho_exciton.out'
-  
-  open(201,file=cfilename)
+
   do ix = -nx, nx
     xx = dx*ix
 
@@ -367,12 +378,40 @@ subroutine compute_real_space_wf(int_in)
 
     zs = zs*dkx/(2d0*pi)
     rr = abs(zs)**2
-    write(201,"(999e26.16e3)")xx,rr
+!    write(201,"(999e26.16e3)")xx,rr
+    rho_rs(ix)
 
+  end do
+
+
+  if(.not. allocated(rho_rs_gs))then
+    allocate(rho_rs_gs(-nx:nx))
+    rho_rs_gs = rho_rs
+  end if
+
+  write(cit,"(I7.7)")int_in
+  cfilename = trim(cit)//'_rho_exciton.out'
+  
+  open(201,file=cfilename)
+  do ix = -nx, nx
+    xx = dx*ix
+    write(201,"(999e26.16e3)")xx,rho_rs(ix),rho_rs(ix)-rho_rs_gs(ix)
   end do
   close(201)
 
 
+  x_ave = 0d0
+  x2_ave = 0d0
+  ss = 0d0
+  do ix = -nx, nx
+    xx = dx*ix
+    ss = ss + rho_rs(ix)
+    x_ave = x_ave + rho_rs(ix)*xx
+    x2_ave = x2_ave + rho_rs(ix)*xx**2
+  end do
+
+  x_ave = x_ave/ss
+  x2_ave = x2_ave/ss
 
 end subroutine compute_real_space_wf
 !-------------------------------------------------------------------------------
