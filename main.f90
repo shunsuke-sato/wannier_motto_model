@@ -62,12 +62,13 @@ subroutine input
   implicit none
 
   eps_cutoff = 15d0*ev
-  mu_mass = 0.24d0 ! light electron
-!  mu_mass = 0.58d0 ! heavy electron
+  mu_mass = 0.21d0 ! light electron
+
 
   nkx = 512+1
+! J. Phys.: Condens. Matter 24, 085602 (2012) 
+  eps_gap = 12.17d0*ev
 
-  eps_gap = 55.8d0*ev
   pvc = 1d0
   v0_coulomb = 0.187d0
 
