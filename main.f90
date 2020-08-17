@@ -70,7 +70,7 @@ subroutine input
   eps_gap = 12.17d0*ev
 
   pvc = 1d0
-  v0_coulomb = 0.187d0
+  v0_coulomb = 0.1529d0 ! for 1eV binding energy
 
 ! lasers
 !  A0_pump = 1d-2
