@@ -10,7 +10,7 @@
 ! You should have received a copy of the GNU General Public License
 ! along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-! Wannier-Motto model for 1D
+! Wannier-Mott model for 1D
 module global_variables
   implicit none
   public
