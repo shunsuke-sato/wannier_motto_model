@@ -23,7 +23,7 @@ WM1D is available under GPL License.
 
 ## Install and Run
 
-   One can simply install WM1D by typing the following in Linux command-line:  
+   One can quickly install WM1D with LAPACK (version 3.9.0) by typing the following in Linux command-line:  
 
 ```
 gfortran main.f90 -o WM1D -llapack
@@ -48,3 +48,5 @@ In the second column, the first and second components are the pulse durations of
 In the third column, the first and second components are the mean photon energies of the pump and probe fields, respectively. Here the values should be given in electron-volt.  
 The fourth column is the time-delay between the pump and probe pulses in the unit of femtosecond.  
 All the other parameters are hard-coded in ```main.f90```. For the details, see the source file ```main.f90```.
+
+By executing ```WM1D```, a file ```Ac_Et_jt.out``` is generated as an output. Here, the applied pump vector potential, the probe electric field, and the induced excitonic current are stored as functions of time. If the above "demo" input is used, one can obtain a result in a couple of minutes on a normal desktop computer.
