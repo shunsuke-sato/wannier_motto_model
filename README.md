@@ -26,7 +26,7 @@ WM1D is available under GPL License.
    One can simply install WM1D by typing the following in Linux command-line:  
 
 ```
-mpif90 main.f90 -o WM1D
+gfortran main.f90 -o WM1D -llapack
 ```
 
 After the compilation, the executable file ```WM1D``` is generated.
