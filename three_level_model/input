@@ -1,0 +1,3 @@
+0.2388091159179314d-2  1.55d0   16d0   ! E0_1, omega0_1_ev, tpulse_1_fs
+1d-4    55d0   1d0   ! E0_2, omega0_2_ev, tpulse_2_fs
+0d0                   ! tdelay_fs
