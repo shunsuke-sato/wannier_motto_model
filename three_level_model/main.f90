@@ -31,6 +31,9 @@ module global_variables
   real(8) :: E0_2, omega0_2, tpulse_2, tdelay
   real(8),allocatable :: Et_2(:),Et_2_dt2(:)
 
+! Floquet decomposition
+  real(8),allocatable :: Et_1_env(:), phi_1(:) ! Et_1 = Et_1_env*cos(omega0_1*t+phi_1)
+
 end module global_variables
 !-------------------------------------------------------------------------------
 program main
@@ -39,7 +42,8 @@ program main
 
   call input
   call initialize
-  call time_propagation
+!  call time_propagation
+  call time_propagation_floquet_decomp
 
 end program main
 !-------------------------------------------------------------------------------
@@ -177,6 +181,18 @@ subroutine time_propagation
 
 end subroutine time_propagation
 !-------------------------------------------------------------------------------
+subroutine time_propagation_floquet_decomp
+  use global_variables
+  implicit none
+  integer :: it
+  real(8) :: dipole
+
+  call calc_envelope_and_phase
+
+
+
+end subroutine time_propagation_floquet_decomp
+!-------------------------------------------------------------------------------
 subroutine dt_evolve(it)
   use global_variables
   implicit none
@@ -246,6 +262,58 @@ subroutine dt_evolve(it)
 
 end subroutine dt_evolve
 !-------------------------------------------------------------------------------
+subroutine calc_envelope_and_phase
+  use global_variables
+  implicit none
+  integer :: nt_pulse
+  real(8),allocatable :: Et_tmp(:)
+  complex(8),allocatable :: zEw_tmp(:),zEt_tmp(:)
+  integer :: it, iw
+
+  allocate(Et_1_env(-1:nt+1), phi_1(-1:nt+1))
+
+  nt_pulse = 0
+  do it = 0, nt+1
+    if(Et_1(it)/= 0d0)nt_pulse = it
+  end do
+
+  allocate(Et_tmp(0:nt_pulse),zEw_tmp(0:nt_pulse),zEt_tmp(0:nt_pulse))
+  Et_tmp(0:nt_pulse) = Et_1(0:nt_pulse)
+
+  zEw_tmp = 0d0
+  do iw = 0, nt_pulse
+    do it = 0, nt_pulse
+      zEw_tmp(iw) = zEw_tmp(iw) + exp(zi*2d0*pi*it*iw/dble(nt_pulse+1))*Et_tmp(it)
+    end do
+  end do
+
+! Hilbert transform
+  zEt_tmp = 0d0
+  do it = 0, nt_pulse
+    do iw = 0, nt_pulse/2
+      zEt_tmp(it) = zEt_tmp(it) + exp(-zi*2d0*pi*it*iw/dble(nt_pulse+1))*zEw_tmp(iw)
+    end do
+  end do
+  zEt_tmp = zEt_tmp/dble(nt_pulse+1)
+
+  Et_1_env = 0d0
+  phi_1 = 0d0
+  do it = 0, nt_pulse
+    Et_1_env(it) = abs(zEt_tmp(it))
+!    if(Et_1_env(it)/=0d0) phi_1(it) = acos(real(zEt_tmp(it))/Et_1_env(it))-omega0_1*dt*it
+    if(Et_1_env(it)/=0d0) phi_1(it) = -aimag(log(zEt_tmp(it)/Et_1_env(it)))-omega0_1*dt*it
+  end do
+  Et_1_env = Et_1_env*2d0 
+
+
+  open(20,file='laser_chk.out')
+  do it = 0, nt
+    write(20,"(999e26.16e3)")dt*it,Et_1(it),Et_1_env(it)&
+      ,Et_1_env(it)*cos(omega0_1*dt*it+phi_1(it)),phi_1(it)
+  end do
+  close(20)
+
+end subroutine calc_envelope_and_phase
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
