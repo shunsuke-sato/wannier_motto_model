@@ -32,7 +32,7 @@ module global_variables
   real(8),allocatable :: Et_2(:),Et_2_dt2(:)
 
 ! Floquet decomposition
-  integer,parameter :: ndim_F = 2
+  integer,parameter :: ndim_F = 3
   real(8),allocatable :: Et_1_env(:), phi_1(:) ! Et_1 = Et_1_env*cos(omega0_1*t+phi_1)
   complex(8),allocatable :: zpsi_F(:,:),zpsi_F_old(:,:),zpsi_F_new(:,:)
   complex(8),allocatable :: zham_F(:,:)
@@ -69,12 +69,13 @@ subroutine input
 
   Tprop = 180d0*fs
   dt = 0.1d0
+!  dt = 0.025d0 ! debug
   nt = aint(Tprop/dt) + 1
   write(*,*)'nt=',nt
 
   open(20,file='input')
   read(20,*)E0_1, omega0_1_ev, tpulse_1_fs
-!  E0_1 = 0d-2
+!  E0_1 = 0d-2 ! debug
   omega0_1 = omega0_1_ev*ev
   tpulse_1 = tpulse_1_fs*fs
 
@@ -199,13 +200,13 @@ subroutine time_propagation_floquet_decomp
   
   it = 0
   dipole = -2d0*d_12*real(zrho_dm(1,2))
-  write(20,"(999e26.16e3)")dt*it,Et_1(it),Et_2(it),dipole
+  write(20,"(999e26.16e3)")dt*it,Et_1(it),Et_2(it),dipole,real(zrho_dm(1,1)+zrho_dm(2,2)+zrho_dm(3,3))
 
   do it = 0, nt
 
     call dt_evolve_floquet(it)
     dipole = -2d0*d_12*real(zrho_dm(1,2))
-    write(20,"(999e26.16e3)")dt*(it+1),Et_1(it+1),Et_2(it+1),dipole
+    write(20,"(999e26.16e3)")dt*(it+1),Et_1(it+1),Et_2(it+1),dipole,real(zrho_dm(1,1)+zrho_dm(2,2)+zrho_dm(3,3))
 
 
   end do
@@ -359,6 +360,7 @@ subroutine init_floquet
   eps_F = eps_F_old
   zpsi_F = zpsi_F_old
 
+  call calc_floquet(1)
 
 end subroutine init_floquet
 !-------------------------------------------------------------------------------
@@ -392,7 +394,7 @@ subroutine calc_floquet(it)
     do jfloquet = 1, 2*ndim_F+1
       if(ifloquet == jfloquet)then
         zham_F(2*(ifloquet-1)+1,2*(ifloquet-1)+1) = H22+omega0_1*(ifloquet-ndim_F-1)
-        zham_F(2*(ifloquet-2)+1,2*(ifloquet-1)+2) = H33+omega0_1*(ifloquet-ndim_F-1)
+        zham_F(2*(ifloquet-1)+2,2*(ifloquet-1)+2) = H33+omega0_1*(ifloquet-ndim_F-1)
       else if(ifloquet == jfloquet-1)then
         zham_F(2*(ifloquet-1)+1,2*(jfloquet-1)+2) = zH23
         zham_F(2*(ifloquet-1)+2,2*(jfloquet-1)+1) = zH23
@@ -431,7 +433,7 @@ subroutine calc_floquet(it)
 
   zs = sum(conjg(zvec(:,1))*zvec_new(:,1))
   zpsi_F_new(:,1) = zpsi_F_new(:,1)*exp(-zi*aimag(log(zs)))
-  zs = sum(conjg(zvec(:,1))*zvec_new(:,2))
+  zs = sum(conjg(zvec(:,2))*zvec_new(:,2))
   zpsi_F_new(:,2) = zpsi_F_new(:,2)*exp(-zi*aimag(log(zs)))
 
 
@@ -455,6 +457,9 @@ subroutine dt_evolve_floquet(it)
 ! == START: propagation from t to t+dt/2 ==
   tt = dt*it
 
+  zvec = 0d0
+  zvec_new = 0d0
+  zvec_old = 0d0
   do ifloquet = 1, 2*ndim_F+1
     zvec_new(1:2,1) = zvec_new(1:2,1) &
       + exp(-zi*(eps_F_new(1)+omega0_1*(ifloquet-1-ndim_F))*tt)&
@@ -477,6 +482,7 @@ subroutine dt_evolve_floquet(it)
       + exp(-zi*(eps_F_old(2)+omega0_1*(ifloquet-1-ndim_F))*tt)&
       * zpsi_F_old(2*(ifloquet-1)+1:2*(ifloquet-1)+2,2)
   end do
+!  write(*,*)'debug',sum(abs(zvec)**2),sum(abs(zvec_new)**2),sum(abs(zvec_old)**2)
   zdvec = 0.5d0/dt*(zvec_new-zvec_old)
 
 
@@ -500,11 +506,14 @@ subroutine dt_evolve_floquet(it)
 
 ! == END: propagation from t to t+dt/2 ==
 ! == START: propagation from t+dt/2 to t+dt ==
-  zpsi_F_old = zpsi_F
-  zpsi_F = zpsi_F_new
+  zpsi_F_old = zpsi_F; eps_F_old = eps_F
+  zpsi_F = zpsi_F_new; eps_F = eps_F_new
   call calc_floquet(it+1)
 
   tt = dt*(it+1)
+  zvec = 0d0
+  zvec_new = 0d0
+  zvec_old = 0d0
   do ifloquet = 1, 2*ndim_F+1
     zvec_new(1:2,1) = zvec_new(1:2,1) &
       + exp(-zi*(eps_F_new(1)+omega0_1*(ifloquet-1-ndim_F))*tt)&
@@ -534,7 +543,7 @@ subroutine dt_evolve_floquet(it)
   zUvec(2:3,2:3) = zvec(1:2,1:2)
   zUvec(1,1) = exp(-zi*(-0.5d0*Egap*tt))
 
-  H12 = Et_2(it)*d_12
+  H12 = Et_2(it+1)*d_12
   zham_org(1,2) = H12
   zham_org(2,1) = H12
 
@@ -543,10 +552,11 @@ subroutine dt_evolve_floquet(it)
   zham_eff(3,2) = conjg(zham_eff(2,3))
 
 
-  zrho_F = matmul(transpose(conjg(zUvec)),matmul(zrho_dm,zUvec))
-  
+ 
   zrho_t = matmul(zham_eff,zrho_F)-matmul(zrho_F,zham_eff)
   zrho_F = zrho_F -zi*0.5d0*dt*zrho_t
+
+  zrho_dm = matmul(zUvec,matmul(zrho_F,transpose(conjg(zUvec))))
 ! == END: propagation from t+dt/2 to t+dt ==  
 
 ! relaxation
