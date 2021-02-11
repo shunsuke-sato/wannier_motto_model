@@ -32,7 +32,7 @@ module global_variables
   real(8),allocatable :: Et_2(:),Et_2_dt2(:)
 
 ! Floquet decomposition
-  integer,parameter :: ndim_F = 3
+  integer,parameter :: ndim_F = 4
   real(8),allocatable :: Et_1_env(:), phi_1(:) ! Et_1 = Et_1_env*cos(omega0_1*t+phi_1)
   complex(8),allocatable :: zpsi_F(:,:),zpsi_F_old(:,:),zpsi_F_new(:,:)
   complex(8),allocatable :: zham_F(:,:)
@@ -68,7 +68,7 @@ subroutine input
 
 
   Tprop = 180d0*fs
-  dt = 0.1d0
+  dt = 0.05d0
 !  dt = 0.025d0 ! debug
   nt = aint(Tprop/dt) + 1
   write(*,*)'nt=',nt
@@ -393,8 +393,8 @@ subroutine calc_floquet(it)
   do ifloquet = 1, 2*ndim_F+1
     do jfloquet = 1, 2*ndim_F+1
       if(ifloquet == jfloquet)then
-        zham_F(2*(ifloquet-1)+1,2*(ifloquet-1)+1) = H22+omega0_1*(ifloquet-ndim_F-1)
-        zham_F(2*(ifloquet-1)+2,2*(ifloquet-1)+2) = H33+omega0_1*(ifloquet-ndim_F-1)
+        zham_F(2*(ifloquet-1)+1,2*(ifloquet-1)+1) = H22-omega0_1*(ifloquet-ndim_F-1)
+        zham_F(2*(ifloquet-1)+2,2*(ifloquet-1)+2) = H33-omega0_1*(ifloquet-ndim_F-1)
       else if(ifloquet == jfloquet-1)then
         zham_F(2*(ifloquet-1)+1,2*(jfloquet-1)+2) = zH23
         zham_F(2*(ifloquet-1)+2,2*(jfloquet-1)+1) = zH23
