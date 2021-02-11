@@ -32,7 +32,11 @@ module global_variables
   real(8),allocatable :: Et_2(:),Et_2_dt2(:)
 
 ! Floquet decomposition
+  integer,parameter :: ndim_F = 2
   real(8),allocatable :: Et_1_env(:), phi_1(:) ! Et_1 = Et_1_env*cos(omega0_1*t+phi_1)
+  complex(8),allocatable :: zpsi_F(:,:),zpsi_F_old(:,:),zpsi_F_new(:,:)
+  complex(8),allocatable :: zham_F(:,:)
+  real(8) :: eps_F(2), eps_F_old(2), eps_F_new(2)
 
 end module global_variables
 !-------------------------------------------------------------------------------
@@ -188,8 +192,26 @@ subroutine time_propagation_floquet_decomp
   real(8) :: dipole
 
   call calc_envelope_and_phase
+  call init_floquet
+
+  open(20,file='Et_dipole.out')
+  write(20,"(A,2x,I7)")'#nt=',nt
+  
+  it = 0
+  dipole = -2d0*d_12*real(zrho_dm(1,2))
+  write(20,"(999e26.16e3)")dt*it,Et_1(it),Et_2(it),dipole
+
+  do it = 0, nt
+
+    call dt_evolve_floquet(it)
+    dipole = -2d0*d_12*real(zrho_dm(1,2))
+    write(20,"(999e26.16e3)")dt*(it+1),Et_1(it+1),Et_2(it+1),dipole
 
 
+  end do
+
+
+  close(20)
 
 end subroutine time_propagation_floquet_decomp
 !-------------------------------------------------------------------------------
@@ -305,6 +327,8 @@ subroutine calc_envelope_and_phase
   end do
   Et_1_env = Et_1_env*2d0 
 
+  phi_1(-1) = phi_1(0)
+  phi_1(nt_pulse+1:nt+1) = phi_1(nt_pulse)
 
   open(20,file='laser_chk.out')
   do it = 0, nt
@@ -315,8 +339,221 @@ subroutine calc_envelope_and_phase
 
 end subroutine calc_envelope_and_phase
 !-------------------------------------------------------------------------------
+subroutine init_floquet
+  use global_variables
+  implicit none
+
+  allocate(zpsi_F(2*(2*ndim_F+1),2) &
+          ,zpsi_F_old(2*(2*ndim_F+1),2) &
+          ,zpsi_F_new(2*(2*ndim_F+1),2) )
+
+  allocate(zham_F(2*(2*ndim_F+1),2*(2*ndim_F+1)))
+
+  eps_F_old(1) = 0.5d0*Egap
+  eps_F_old(2) = 0.5d0*Egap+Egap_23
+
+  zpsi_F_old = 0d0
+  zpsi_F_old(2*ndim_F+1,1) = 1d0
+  zpsi_F_old(2*ndim_F+2,2) = 1d0
+
+  eps_F = eps_F_old
+  zpsi_F = zpsi_F_old
+
+
+end subroutine init_floquet
 !-------------------------------------------------------------------------------
+subroutine calc_floquet(it)
+  use global_variables
+  implicit none
+  integer,intent(in) :: it
+  real(8) :: H22, H33
+  complex(8) :: zH23
+  integer :: ifloquet, jfloquet
+! lapack arrays
+  integer :: lwork,info
+  complex(8),allocatable :: work(:)
+  real(8),allocatable    :: rwork(:),w(:)
+
+  lwork = 8*(2*(2*ndim_f+1))**2
+  allocate(w(2*(2*ndim_f+1)))
+  allocate(work(lwork), rwork(3*2*(2*ndim_f+1)))
+! lapack arrays
+
+  complex(8) :: zvec(2,2), zvec_new(2,2)
+  real(8) :: tt
+
+
+  H22  = 0.5d0*Egap
+  H33  = 0.5d0*Egap+Egap_23
+  zH23 = 0.5d0*d_23*Et_1_env(it)*exp(zi*phi_1(it))
+
+  zham_F = 0d0
+  do ifloquet = 1, 2*ndim_F+1
+    do jfloquet = 1, 2*ndim_F+1
+      if(ifloquet == jfloquet)then
+        zham_F(2*(ifloquet-1)+1,2*(ifloquet-1)+1) = H22+omega0_1*(ifloquet-ndim_F-1)
+        zham_F(2*(ifloquet-2)+1,2*(ifloquet-1)+2) = H33+omega0_1*(ifloquet-ndim_F-1)
+      else if(ifloquet == jfloquet-1)then
+        zham_F(2*(ifloquet-1)+1,2*(jfloquet-1)+2) = zH23
+        zham_F(2*(ifloquet-1)+2,2*(jfloquet-1)+1) = zH23
+      else if(ifloquet == jfloquet+1)then
+        zham_F(2*(ifloquet-1)+1,2*(jfloquet-1)+2) = conjg(zH23)
+        zham_F(2*(ifloquet-1)+2,2*(jfloquet-1)+1) = conjg(zH23)
+      end if
+    end do
+  end do
+
+  call zheev('V', 'U', 2*(2*ndim_F+1), zham_F, 2*(2*ndim_F+1), w, work, lwork, rwork, info)
+
+  zpsi_F_new(:,1) = zham_F(:,2*ndim_F+1)
+  zpsi_F_new(:,2) = zham_F(:,2*ndim_F+2)
+  eps_F_new(1)    = w(2*ndim_F+1)
+  eps_F_new(2)    = w(2*ndim_F+2)
+
+  tt = it*dt
+  zvec = 0d0
+  zvec_new = 0d0
+  do ifloquet = 1, 2*ndim_F+1
+    zvec_new(1:2,1) = zvec_new(1:2,1) &
+      + exp(-zi*(eps_new(1)+omega0_1*(ifloquet-1-ndim_F))*tt)&
+      * zpsi_F_new(2*(ifloquet-1)+1:2*(ifloquet-1)+2,1)
+    zvec_new(1:2,2) = zvec_new(1:2,2) &
+      + exp(-zi*(eps_new(2)+omega0_1*(ifloquet-1-ndim_F))*tt)&
+      * zpsi_F_new(2*(ifloquet-1)+1:2*(ifloquet-1)+2,2)
+
+    zvec(1:2,1) = zvec(1:2,1) &
+      + exp(-zi*(eps_new(1)+omega0_1*(ifloquet-1-ndim_F))*tt)&
+      * zpsi_F(2*(ifloquet-1)+1:2*(ifloquet-1)+2,1)
+    zvec(1:2,2) = zvec(1:2,2) &
+      + exp(-zi*(eps_new(2)+omega0_1*(ifloquet-1-ndim_F))*tt)&
+      * zpsi_F(2*(ifloquet-1)+1:2*(ifloquet-1)+2,2)
+  end do
+
+  zs = sum(conjg(zvec(:,1))*zvec_new(:,1))
+  zpsi_F_new(:,1) = zpsi_F_new(:,1)*exp(-zi*aimag(log(zs)))
+  zs = sum(conjg(zvec(:,1))*zvec_new(:,2))
+  zpsi_F_new(:,2) = zpsi_F_new(:,2)*exp(-zi*aimag(log(zs)))
+
+
+end subroutine calc_floquet
 !-------------------------------------------------------------------------------
+subroutine dt_evolve_floquet(it)
+  use global_variables
+  implicit none
+  integer,intent(in):: it
+  complex(8) :: zrho_t(3,3), zrho_F(3,3)
+  complex(8) :: zvec_new(2,2), zvec(2,2), zvec_old(2,2), zdvec(2,2)
+  complex(8) :: zUvec(3,3), zham_org(3,3), zham_eff(3,3)
+  integer :: ifloquet
+  real(8) :: H12
+
+! relaxation
+  zrho_dm(1,2) = zrho_dm(1,2,irk) -0.5d0*dt*zrho_dm(1,2)/T2_12
+  zrho_dm(2,1) = zrho_dm(2,1,irk) -0.5d0*dt*zrho_dm(2,1)/T2_12
+
+
+! == START: propagation from t to t+dt/2 ==
+  tt = dt*it
+
+  do ifloquet = 1, 2*ndim_F+1
+    zvec_new(1:2,1) = zvec_new(1:2,1) &
+      + exp(-zi*(eps_new(1)+omega0_1*(ifloquet-1-ndim_F))*tt)&
+      * zpsi_F_new(2*(ifloquet-1)+1:2*(ifloquet-1)+2,1)
+    zvec_new(1:2,2) = zvec_new(1:2,2) &
+      + exp(-zi*(eps_new(2)+omega0_1*(ifloquet-1-ndim_F))*tt)&
+      * zpsi_F_new(2*(ifloquet-1)+1:2*(ifloquet-1)+2,2)
+
+    zvec(1:2,1) = zvec(1:2,1) &
+      + exp(-zi*(eps_new(1)+omega0_1*(ifloquet-1-ndim_F))*tt)&
+      * zpsi_F(2*(ifloquet-1)+1:2*(ifloquet-1)+2,1)
+    zvec(1:2,2) = zvec(1:2,2) &
+      + exp(-zi*(eps_new(2)+omega0_1*(ifloquet-1-ndim_F))*tt)&
+      * zpsi_F(2*(ifloquet-1)+1:2*(ifloquet-1)+2,2)
+
+    zvec_old(1:2,1) = zvec_old(1:2,1) &
+      + exp(-zi*(eps_new(1)+omega0_1*(ifloquet-1-ndim_F))*tt)&
+      * zpsi_F_old(2*(ifloquet-1)+1:2*(ifloquet-1)+2,1)
+    zvec_old(1:2,2) = zvec_old(1:2,2) &
+      + exp(-zi*(eps_new(2)+omega0_1*(ifloquet-1-ndim_F))*tt)&
+      * zpsi_F_old(2*(ifloquet-1)+1:2*(ifloquet-1)+2,2)
+  end do
+  zdvec = 0.5d0/dt*(zvec_new-zvec_old)
+
+
+  zUvec = 0d0
+  zUvec(2:3,2:3) = zvec(1:2,1:2)
+  zUvec(1,1) = exp(-zi*(-0.5d0*Egap*tt))
+
+  H12 = Et_2(it)*d_12
+  zham_org(1,2) = H12
+  zham_org(2,1) = H12
+
+  zham_eff = matmul(transpose(conjg(zUvec)),matmul(zham_org,zUvec))
+  zham_eff(2,3) = zham_eff(2,3) -zi*sum(conjg(zvec(:,1))*zdvec(:,2))
+  zham_eff(3,2) = conjg(zham_eff(2,3))
+
+
+  zrho_F = matmul(transpose(conjg(zUvec)),matmul(zrho_dm,zUvec))
+  
+  zrho_t = matmul(zham_eff,zrho_F)-matmul(zrho_F,zham_eff)
+  zrho_F = zrho_F -zi*0.5d0*dt*zrho_t
+
+! == END: propagation from t to t+dt/2 ==
+! == START: propagation from t+dt/2 to t+dt ==
+  zpsi_F_old = zpsi_F
+  zpsi_F = zpsi_F_new
+  call calc_floquet(it+1)
+
+  tt = dt*(it+1)
+  do ifloquet = 1, 2*ndim_F+1
+    zvec_new(1:2,1) = zvec_new(1:2,1) &
+      + exp(-zi*(eps_new(1)+omega0_1*(ifloquet-1-ndim_F))*tt)&
+      * zpsi_F_new(2*(ifloquet-1)+1:2*(ifloquet-1)+2,1)
+    zvec_new(1:2,2) = zvec_new(1:2,2) &
+      + exp(-zi*(eps_new(2)+omega0_1*(ifloquet-1-ndim_F))*tt)&
+      * zpsi_F_new(2*(ifloquet-1)+1:2*(ifloquet-1)+2,2)
+
+    zvec(1:2,1) = zvec(1:2,1) &
+      + exp(-zi*(eps_new(1)+omega0_1*(ifloquet-1-ndim_F))*tt)&
+      * zpsi_F(2*(ifloquet-1)+1:2*(ifloquet-1)+2,1)
+    zvec(1:2,2) = zvec(1:2,2) &
+      + exp(-zi*(eps_new(2)+omega0_1*(ifloquet-1-ndim_F))*tt)&
+      * zpsi_F(2*(ifloquet-1)+1:2*(ifloquet-1)+2,2)
+
+    zvec_old(1:2,1) = zvec_old(1:2,1) &
+      + exp(-zi*(eps_new(1)+omega0_1*(ifloquet-1-ndim_F))*tt)&
+      * zpsi_F_old(2*(ifloquet-1)+1:2*(ifloquet-1)+2,1)
+    zvec_old(1:2,2) = zvec_old(1:2,2) &
+      + exp(-zi*(eps_new(2)+omega0_1*(ifloquet-1-ndim_F))*tt)&
+      * zpsi_F_old(2*(ifloquet-1)+1:2*(ifloquet-1)+2,2)
+  end do
+  zdvec = 0.5d0/dt*(zvec_new-zvec_old)
+
+
+  zUvec = 0d0
+  zUvec(2:3,2:3) = zvec(1:2,1:2)
+  zUvec(1,1) = exp(-zi*(-0.5d0*Egap*tt))
+
+  H12 = Et_2(it)*d_12
+  zham_org(1,2) = H12
+  zham_org(2,1) = H12
+
+  zham_eff = matmul(transpose(conjg(zUvec)),matmul(zham_org,zUvec))
+  zham_eff(2,3) = zham_eff(2,3) -zi*sum(conjg(zvec(:,1))*zdvec(:,2))
+  zham_eff(3,2) = conjg(zham_eff(2,3))
+
+
+  zrho_F = matmul(transpose(conjg(zUvec)),matmul(zrho_dm,zUvec))
+  
+  zrho_t = matmul(zham_eff,zrho_F)-matmul(zrho_F,zham_eff)
+  zrho_F = zrho_F -zi*0.5d0*dt*zrho_t
+! == END: propagation from t+dt/2 to t+dt ==  
+
+! relaxation
+  zrho_dm(1,2) = zrho_dm(1,2,irk) -0.5d0*dt*zrho_dm(1,2)/T2_12
+  zrho_dm(2,1) = zrho_dm(2,1,irk) -0.5d0*dt*zrho_dm(2,1)/T2_12
+
+end subroutine dt_evolve_floquet
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
