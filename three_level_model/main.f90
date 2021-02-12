@@ -199,13 +199,15 @@ subroutine time_propagation_floquet_decomp
   write(20,"(A,2x,I7)")'#nt=',nt
   
   it = 0
-  dipole = -2d0*d_12*real(zrho_dm(1,2))
+!  dipole = -2d0*d_12*real(zrho_dm(1,2))
+  call calc_dipole_floquet(it, dipole)
   write(20,"(999e26.16e3)")dt*it,Et_1(it),Et_2(it),dipole,real(zrho_dm(1,1)+zrho_dm(2,2)+zrho_dm(3,3))
 
   do it = 0, nt
 
     call dt_evolve_floquet(it)
-    dipole = -2d0*d_12*real(zrho_dm(1,2))
+!    dipole = -2d0*d_12*real(zrho_dm(1,2))
+    call calc_dipole_floquet(it+1, dipole)
     write(20,"(999e26.16e3)")dt*(it+1),Et_1(it+1),Et_2(it+1),dipole,real(zrho_dm(1,1)+zrho_dm(2,2)+zrho_dm(3,3))
 
 
@@ -569,6 +571,45 @@ subroutine dt_evolve_floquet(it)
   zrho_dm(2,1) = zrho_dm(2,1) -0.5d0*dt*zrho_dm(2,1)/T2_12
 
 end subroutine dt_evolve_floquet
+!-------------------------------------------------------------------------------
+subroutine calc_dipole_floquet(it, dipole)
+  use global_variables
+  implicit none
+  integer,intent(it) :: it
+  real(8),intent(out) :: dipole
+  integer :: ifloquet
+  real(8) :: tt
+  complex(8) :: zvec(2,2)
+  complex(8) :: zUvec(3,3), zD_org(3,3), zD_eff(3,3)
+
+  tt = dt*it
+  zvec = 0d0
+  do ifloquet = 1, 2*ndim_F+1
+
+    zvec(1:2,1) = zvec(1:2,1) &
+      + exp(-zi*(eps_F(1)+omega0_1*(ifloquet-1-ndim_F))*tt)&
+      * zpsi_F(2*(ifloquet-1)+1:2*(ifloquet-1)+2,1)
+    zvec(1:2,2) = zvec(1:2,2) &
+      + exp(-zi*(eps_F(2)+omega0_1*(ifloquet-1-ndim_F))*tt)&
+      * zpsi_F(2*(ifloquet-1)+1:2*(ifloquet-1)+2,2)
+
+  end do
+
+  zUvec = 0d0
+  zUvec(2:3,2:3) = zvec(1:2,1:2)
+  zUvec(1,1) = exp(-zi*(-0.5d0*Egap*tt))
+
+  zD_org = 0d0
+  zD_org(1,2) = -d_12
+  zD_org(2,1) = -d_12
+
+  zD_eff = matmul(transpose(conjg(zUvec)),matmul(zD_org,zUvec))
+  zD_org = matmul(zUvec,matmul(zD_eff,transpose(conjg(zUvec))))
+
+  zD_org = matmul(zD_org,zrho_dm)
+  dipole = real(zD_org(1,1)+zD_org(2,2)+zD_org(3,3))
+
+end subroutine calc_dipole_floquet
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
