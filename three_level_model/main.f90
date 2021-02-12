@@ -32,7 +32,7 @@ module global_variables
   real(8),allocatable :: Et_2(:),Et_2_dt2(:)
 
 ! Floquet decomposition
-  integer,parameter :: ndim_F = 4
+  integer,parameter :: ndim_F = 6
   real(8),allocatable :: Et_1_env(:), phi_1(:) ! Et_1 = Et_1_env*cos(omega0_1*t+phi_1)
   complex(8),allocatable :: zpsi_F(:,:),zpsi_F_old(:,:),zpsi_F_new(:,:)
   complex(8),allocatable :: zham_F(:,:)
@@ -68,7 +68,7 @@ subroutine input
 
 
   Tprop = 180d0*fs
-  dt = 0.05d0
+  dt = 0.1d0
 !  dt = 0.025d0 ! debug
   nt = aint(Tprop/dt) + 1
   write(*,*)'nt=',nt
@@ -491,11 +491,13 @@ subroutine dt_evolve_floquet(it)
   zUvec(1,1) = exp(-zi*(-0.5d0*Egap*tt))
 
   H12 = Et_2(it)*d_12
+  zham_org = 0d0
   zham_org(1,2) = H12
   zham_org(2,1) = H12
 
   zham_eff = matmul(transpose(conjg(zUvec)),matmul(zham_org,zUvec))
   zham_eff(2,3) = zham_eff(2,3) -zi*sum(conjg(zvec(:,1))*zdvec(:,2))
+!  zham_eff(3,2) = zham_eff(3,2) -zi*sum(conjg(zvec(:,2))*zdvec(:,1)) ! debug
   zham_eff(3,2) = conjg(zham_eff(2,3))
 
 
@@ -508,7 +510,8 @@ subroutine dt_evolve_floquet(it)
 ! == START: propagation from t+dt/2 to t+dt ==
   zpsi_F_old = zpsi_F; eps_F_old = eps_F
   zpsi_F = zpsi_F_new; eps_F = eps_F_new
-  call calc_floquet(it+1)
+  call calc_floquet(it+2)
+!
 
   tt = dt*(it+1)
   zvec = 0d0
@@ -544,11 +547,13 @@ subroutine dt_evolve_floquet(it)
   zUvec(1,1) = exp(-zi*(-0.5d0*Egap*tt))
 
   H12 = Et_2(it+1)*d_12
+  zham_org = 0d0
   zham_org(1,2) = H12
   zham_org(2,1) = H12
 
   zham_eff = matmul(transpose(conjg(zUvec)),matmul(zham_org,zUvec))
   zham_eff(2,3) = zham_eff(2,3) -zi*sum(conjg(zvec(:,1))*zdvec(:,2))
+!  zham_eff(3,2) = zham_eff(3,2) -zi*sum(conjg(zvec(:,2))*zdvec(:,1)) ! debug
   zham_eff(3,2) = conjg(zham_eff(2,3))
 
 
