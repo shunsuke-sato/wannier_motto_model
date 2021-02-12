@@ -575,7 +575,7 @@ end subroutine dt_evolve_floquet
 subroutine calc_dipole_floquet(it, dipole)
   use global_variables
   implicit none
-  integer,intent(it) :: it
+  integer,intent(in) :: it
   real(8),intent(out) :: dipole
   integer :: ifloquet
   real(8) :: tt
