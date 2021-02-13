@@ -38,6 +38,11 @@ module global_variables
   complex(8),allocatable :: zham_F(:,:)
   real(8) :: eps_F(2), eps_F_old(2), eps_F_new(2)
 
+! dressed states
+  complex(8) :: zpsi_dressed(2,2), zham_dressed(2,2), zpsi_dressed_3level(3,3)
+  complex(8) :: zprojector(3,3), zham_proj(3,3)
+  real(8) :: ham_dressed(2,2)
+
 end module global_variables
 !-------------------------------------------------------------------------------
 program main
@@ -47,7 +52,8 @@ program main
   call input
   call initialize
 !  call time_propagation
-  call time_propagation_floquet_decomp
+!  call time_propagation_floquet_decomp
+  call time_propagation_dressed_states_decomp
 
 end program main
 !-------------------------------------------------------------------------------
@@ -185,6 +191,40 @@ subroutine time_propagation
   close(20)
 
 end subroutine time_propagation
+!-------------------------------------------------------------------------------
+subroutine time_propagation_dressed_states_decomp
+  use global_variables
+  implicit none
+  integer :: it
+  real(8) :: dipole
+
+  zpsi_dressed = 0d0
+  zpsi_dressed(1,1) = 1d0
+  zpsi_dressed(2,2) = 1d0
+
+  open(20,file='Et_dipole.out')
+  write(20,"(A,2x,I7)")'#nt=',nt
+  
+  it = 0
+  dipole = -2d0*d_12*real(zrho_dm(1,2))
+  write(20,"(999e26.16e3)")dt*it,Et_1(it),Et_2(it),dipole
+
+  do it = 0, nt
+
+    call dt_evolve_dressed_states_decomp(it)
+    dipole = -2d0*d_12*real(zrho_dm(1,2))
+    write(20,"(999e26.16e3)")dt*(it+1),Et_1(it+1),Et_2(it+1),dipole
+
+
+  end do
+
+  close(20)
+
+  open(20,file='final_initial_overlap.out')
+  write(20,"(999e26.16e3)")abs(zpsi_dressed(1,1))**2,abs(zpsi_dressed(2,2))**2
+  close(20)
+
+end subroutine time_propagation_dressed_states_decomp
 !-------------------------------------------------------------------------------
 subroutine time_propagation_floquet_decomp
   use global_variables
@@ -611,8 +651,187 @@ subroutine calc_dipole_floquet(it, dipole)
 
 end subroutine calc_dipole_floquet
 !-------------------------------------------------------------------------------
+subroutine dt_evolve_dressed_states_decomp(it)
+  use global_variables
+  implicit none
+
+  integer,intent(in) :: it
+  integer :: irk
+  real(8) :: H12, H23
+  complex(8) :: zrho_rk(3,3,4)
+  complex(8) :: zrho_t(3,3)
+
+  Hmat = 0d0
+  Hmat(1,1) = -0.5d0*Egap
+  Hmat(2,2) =  0.5d0*Egap
+  Hmat(3,3) =  0.5d0*Egap+Egap_23
+
+
+! at time, t
+  H23 = Et_1(it)*d_23
+  H12 = Et_2(it)*d_12
+  Hmat(1,2) = H12; Hmat(2,1) = H12
+  Hmat(2,3) = H23; Hmat(3,2) = H23
+  call calc_projector_dressed
+  call calc_projected_ham
+
+!RK1
+  irk = 1
+  zrho_t = zrho_dm
+  zrho_rk(:,:,irk) = -zi*(matmul(zham_proj,zrho_t)-matmul(zrho_t,zham_proj))
+  zrho_rk(1,2,irk) = zrho_rk(1,2,irk) -zrho_dm(1,2)/T2_12
+  zrho_rk(2,1,irk) = zrho_rk(2,1,irk) -zrho_dm(2,1)/T2_12
+
+! at time, t+dt/2
+  H23 = Et_1_dt2(it)*d_23
+  H12 = Et_2_dt2(it)*d_12
+  Hmat(1,2) = H12; Hmat(2,1) = H12
+  Hmat(2,3) = H23; Hmat(3,2) = H23
+  ham_dressed(1,1) = Hmat(2,2)
+  ham_dressed(2,2) = Hmat(3,3)
+  ham_dressed(1,2) = 0.5d0*(Et_1(it)+Et_1_dt2(it))*d_23
+  ham_dressed(2,1) = ham_dressed(1,2)
+  call half_dt_eveolve_dressed_states
+  call calc_projector_dressed
+  call calc_projected_ham
+
+!RK2
+  irk = 2
+  zrho_t = zrho_dm + 0.5d0*dt*zrho_rk(:,:,1)
+  zrho_rk(:,:,irk) = -zi*(matmul(zham_proj,zrho_t)-matmul(zrho_t,zham_proj))
+  zrho_rk(1,2,irk) = zrho_rk(1,2,irk) -zrho_dm(1,2)/T2_12
+  zrho_rk(2,1,irk) = zrho_rk(2,1,irk) -zrho_dm(2,1)/T2_12
+
+!RK3
+  irk = 3
+  zrho_t = zrho_dm + 0.5d0*dt*zrho_rk(:,:,2)
+  zrho_rk(:,:,irk) = -zi*(matmul(zham_proj,zrho_t)-matmul(zrho_t,zham_proj))
+  zrho_rk(1,2,irk) = zrho_rk(1,2,irk) -zrho_dm(1,2)/T2_12
+  zrho_rk(2,1,irk) = zrho_rk(2,1,irk) -zrho_dm(2,1)/T2_12
+
+! at time, t+dt
+  H23 = Et_1(it+1)*d_23
+  H12 = Et_2(it+1)*d_12
+  Hmat(1,2) = H12; Hmat(2,1) = H12
+  Hmat(2,3) = H23; Hmat(3,2) = H23
+  ham_dressed(1,1) = Hmat(2,2)
+  ham_dressed(2,2) = Hmat(3,3)
+  ham_dressed(1,2) = 0.5d0*(Et_1(it+1)+Et_1_dt2(it))*d_23
+  ham_dressed(2,1) = ham_dressed(1,2)
+  call half_dt_eveolve_dressed_states
+  call calc_projector_dressed
+  call calc_projected_ham
+
+!RK4
+  irk = 4
+  zrho_t = zrho_dm + dt*zrho_rk(:,:,3)
+  zrho_rk(:,:,irk) = -zi*(matmul(zham_proj,zrho_t)-matmul(zrho_t,zham_proj))
+  zrho_rk(1,2,irk) = zrho_rk(1,2,irk) -zrho_dm(1,2)/T2_12
+  zrho_rk(2,1,irk) = zrho_rk(2,1,irk) -zrho_dm(2,1)/T2_12
+
+
+  zrho_dm = zrho_dm + dt/6d0*(zrho_rk(:,:,1) &
+                         +2d0*zrho_rk(:,:,2) &
+                         +2d0*zrho_rk(:,:,3) &
+                         +    zrho_rk(:,:,4))
+end subroutine dt_evolve_dressed_states_decomp
 !-------------------------------------------------------------------------------
+subroutine calc_projector_dressed
+  use global_variables
+  implicit none
+  integer :: i, j
+  
+  zpsi_dressed_3level = 0d0
+  zpsi_dressed_3level(2:3,2:3) = zpsi_dressed(1:2,1:2)
+  
+  zprojector = 0d0
+  zprojector(1,1) = 1d0
+  zprojector(2,2) = 1d0
+  zprojector(3,3) = 1d0
+
+! projection out dark dressed states
+  do i = 1,3
+    do j = 1,3
+      zprojector(i,j) = zprojector(i,j) &
+        - zpsi_dressed_3level(i,3)*conjg(zpsi_dressed_3level(j,3))
+    end do
+  end do
+  
+
+end subroutine calc_projector_dressed
 !-------------------------------------------------------------------------------
+subroutine calc_projected_ham
+  use global_variables
+  implicit none
+
+  zham_proj = matmul(zprojector,matmul(hmat,zprojector))
+
+end subroutine calc_projected_ham
+!-------------------------------------------------------------------------------
+subroutine half_dt_eveolve_dressed_states
+  use global_variables
+  implicit none
+  complex(8) :: zham(2,2),zvec(2,2), zc(2)
+  real(8) :: eps_t(2)
+  integer :: is
+
+  zham = ham_dressed
+  call calc_eig_vec_2x2(zham, zvec, eps_t)
+!  write(*,*)eps_t,sum(zvec),sum(zham)
+
+  do is = 1, 2
+    zc(1) = sum(conjg(zvec(:,1))*zpsi_dressed(:,is))
+    zc(2) = sum(conjg(zvec(:,2))*zpsi_dressed(:,is))
+    zc = exp(-zi*0.5d0*dt*eps_t)*zc
+    zpsi_dressed(:,is) = zvec(:,1)*zc(1) + zvec(:,2)*zc(2)
+
+  end do
+
+end subroutine half_dt_eveolve_dressed_states
+!---------------------------------------------------------------  
+subroutine calc_eig_vec_2x2(zham, zvec, eps_t)
+  implicit none
+  complex(8),intent(in) :: zham(2,2)
+  complex(8),intent(out) :: zvec(2,2)
+  real(8),intent(out) :: eps_t(2)
+  real(8) :: a,c
+  complex(8):: zb, zx, zy
+
+! (a    zb)
+! (zb^*  c)
+
+  a = zham(1,1)
+  zb = zham(1,2)
+  c = zham(2,2)
+
+  eps_t(1) = 0.5d0*( (a+c)-sqrt((a-c)**2+4d0*abs(zb)**2))
+  eps_t(2) = 0.5d0*( (a+c)+sqrt((a-c)**2+4d0*abs(zb)**2))
+
+  if(a<c)then
+    zy = conjg(zb)/(eps_t(1)-c)
+    zvec(1,1) = 1d0/sqrt(1d0+abs(zy)**2)
+    zvec(2,1) = zy/sqrt(1d0+abs(zy)**2)
+
+    zx = zb/(eps_t(2)-a)
+    zvec(1,2) = zx/sqrt(1d0+abs(zx)**2)
+    zvec(2,2) = 1d0/sqrt(1d0+abs(zx)**2)
+
+  else
+
+    zx = zb/(eps_t(1)-a)
+    zvec(1,1) = zx/sqrt(1d0+abs(zx)**2)
+    zvec(2,1) = 1d0/sqrt(1d0+abs(zx)**2)
+
+    zy = conjg(zb)/(eps_t(2)-c)
+    zvec(1,2) = 1d0/sqrt(1d0+abs(zy)**2)
+    zvec(2,2) = zy/sqrt(1d0+abs(zy)**2)
+
+  end if
+
+
+
+end subroutine calc_eig_vec_2x2
+!---------------------------------------------------------------
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
