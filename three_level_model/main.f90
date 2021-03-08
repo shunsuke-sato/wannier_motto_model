@@ -239,15 +239,15 @@ subroutine time_propagation_floquet_decomp
   write(20,"(A,2x,I7)")'#nt=',nt
   
   it = 0
-!  dipole = -2d0*d_12*real(zrho_dm(1,2))
-  call calc_dipole_floquet(it, dipole)
+  dipole = -2d0*d_12*real(zrho_dm(1,2))
+!  call calc_dipole_floquet(it, dipole)
   write(20,"(999e26.16e3)")dt*it,Et_1(it),Et_2(it),dipole,real(zrho_dm(1,1)+zrho_dm(2,2)+zrho_dm(3,3))
 
   do it = 0, nt
 
     call dt_evolve_floquet(it)
-!    dipole = -2d0*d_12*real(zrho_dm(1,2))
-    call calc_dipole_floquet(it+1, dipole)
+    dipole = -2d0*d_12*real(zrho_dm(1,2))
+!    call calc_dipole_floquet(it+1, dipole)
     write(20,"(999e26.16e3)")dt*(it+1),Et_1(it+1),Et_2(it+1),dipole,real(zrho_dm(1,1)+zrho_dm(2,2)+zrho_dm(3,3))
 
 
