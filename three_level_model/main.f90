@@ -38,10 +38,16 @@ module global_variables
   complex(8),allocatable :: zham_F(:,:)
   real(8) :: eps_F(2), eps_F_old(2), eps_F_new(2)
 
+! Floquet kick
+  integer :: it_kick
+  real(8) :: kick_strength_floquet
+
 ! dressed states
   complex(8) :: zpsi_dressed(2,2), zham_dressed(2,2), zpsi_dressed_3level(3,3)
   complex(8) :: zprojector(3,3), zham_proj(3,3)
   real(8) :: ham_dressed(2,2)
+
+
 
 end module global_variables
 !-------------------------------------------------------------------------------
@@ -549,6 +555,22 @@ subroutine dt_evolve_floquet(it)
   zrho_F = zrho_F -zi*0.5d0*dt*zrho_t
 
 ! == END: propagation from t to t+dt/2 ==
+! == START: impulsive distortion at t+dt/2
+  if(it == it_kick)then
+    tt = dt*it+0.5d0*dt
+    zUvec = 0d0
+    zUvec(2:3,2:3) = zvec_new(1:2,1:2)
+    zUvec(1,1) = exp(-zi*(-0.5d0*Egap*tt))
+ 
+    H12 = kick_strength_floquet*d_12
+    zham_org = 0d0
+    zham_org(1,2) = H12
+    zham_org(2,1) = H12
+
+    zham_eff = matmul(transpose(conjg(zUvec)),matmul(zham_org,zUvec))    
+ 
+  end if
+! == END: impulsive distortion at t+dt/2
 ! == START: propagation from t+dt/2 to t+dt ==
   zpsi_F_old = zpsi_F; eps_F_old = eps_F
   zpsi_F = zpsi_F_new; eps_F = eps_F_new
