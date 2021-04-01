@@ -39,8 +39,8 @@ module global_variables
   real(8) :: eps_F(2), eps_F_old(2), eps_F_new(2)
 
 ! Floquet kick
-  integer :: it_kick
-  real(8) :: kick_strength_floquet
+  integer :: it_kick=-20
+  real(8) :: kick_strength_floquet =0d-3
 
 ! dressed states
   complex(8) :: zpsi_dressed(2,2), zham_dressed(2,2), zpsi_dressed_3level(3,3)
@@ -167,6 +167,19 @@ subroutine init_laser
     end if
 
   end do
+
+  kick_strength_floquet = 0d0
+  it_kick = -20
+  if(kick_strength_floquet /= 0d0)then
+    Et_2 = 0d0
+    Et_2_dt2 = 0d0
+    tt = 0.5d0*tpulse_1 + tdelay + t_offset
+    it_kick = nint(tt/dt)
+
+    write(*,"(A,I7,e26.16e3)")"time of impulse, it, tt",it_kick,it_kick*dt
+    write(*,"(A,e26.16e3)")"strength of impulse",kick_strength_floquet
+
+  end if
 
 
 end subroutine init_laser
@@ -497,6 +510,12 @@ subroutine dt_evolve_floquet(it)
   integer :: ifloquet
   real(8) :: H12, tt
 
+! == START: impulsive distortion at t
+  if(it == it_kick)then
+    call floquet_impulsive_distortion
+  end if
+! == END: impulsive distortion at t+dt/2
+
 ! relaxation
   zrho_dm(1,2) = zrho_dm(1,2) -0.5d0*dt*zrho_dm(1,2)/T2_12
   zrho_dm(2,1) = zrho_dm(2,1) -0.5d0*dt*zrho_dm(2,1)/T2_12
@@ -544,6 +563,10 @@ subroutine dt_evolve_floquet(it)
   zham_org(2,1) = H12
 
   zham_eff = matmul(transpose(conjg(zUvec)),matmul(zham_org,zUvec))
+! Start: Floquet projection
+!  zham_eff(1,3) = 0d0 ! turn off dark exciton
+!  zham_eff(3,1) = 0d0 ! turn off dark exciton
+! End:   Floquet projection 
   zham_eff(2,3) = zham_eff(2,3) -zi*sum(conjg(zvec(:,1))*zdvec(:,2))
 !  zham_eff(3,2) = zham_eff(3,2) -zi*sum(conjg(zvec(:,2))*zdvec(:,1)) ! debug
   zham_eff(3,2) = conjg(zham_eff(2,3))
@@ -555,22 +578,6 @@ subroutine dt_evolve_floquet(it)
   zrho_F = zrho_F -zi*0.5d0*dt*zrho_t
 
 ! == END: propagation from t to t+dt/2 ==
-! == START: impulsive distortion at t+dt/2
-  if(it == it_kick)then
-    tt = dt*it+0.5d0*dt
-    zUvec = 0d0
-    zUvec(2:3,2:3) = zvec_new(1:2,1:2)
-    zUvec(1,1) = exp(-zi*(-0.5d0*Egap*tt))
- 
-    H12 = kick_strength_floquet*d_12
-    zham_org = 0d0
-    zham_org(1,2) = H12
-    zham_org(2,1) = H12
-
-    zham_eff = matmul(transpose(conjg(zUvec)),matmul(zham_org,zUvec))    
- 
-  end if
-! == END: impulsive distortion at t+dt/2
 ! == START: propagation from t+dt/2 to t+dt ==
   zpsi_F_old = zpsi_F; eps_F_old = eps_F
   zpsi_F = zpsi_F_new; eps_F = eps_F_new
@@ -616,6 +623,10 @@ subroutine dt_evolve_floquet(it)
   zham_org(2,1) = H12
 
   zham_eff = matmul(transpose(conjg(zUvec)),matmul(zham_org,zUvec))
+! Start: Floquet projection
+!  zham_eff(1,3) = 0d0 ! turn off dark exciton
+!  zham_eff(3,1) = 0d0 ! turn off dark exciton
+! End:   Floquet projection
   zham_eff(2,3) = zham_eff(2,3) -zi*sum(conjg(zvec(:,1))*zdvec(:,2))
 !  zham_eff(3,2) = zham_eff(3,2) -zi*sum(conjg(zvec(:,2))*zdvec(:,1)) ! debug
   zham_eff(3,2) = conjg(zham_eff(2,3))
@@ -631,6 +642,64 @@ subroutine dt_evolve_floquet(it)
 ! relaxation
   zrho_dm(1,2) = zrho_dm(1,2) -0.5d0*dt*zrho_dm(1,2)/T2_12
   zrho_dm(2,1) = zrho_dm(2,1) -0.5d0*dt*zrho_dm(2,1)/T2_12
+
+  contains
+    subroutine floquet_impulsive_distortion
+      implicit none
+
+
+      tt = dt*it
+
+      zvec = 0d0
+      zvec_new = 0d0
+      zvec_old = 0d0
+      do ifloquet = 1, 2*ndim_F+1
+        zvec_new(1:2,1) = zvec_new(1:2,1) &
+          + exp(-zi*(eps_F_new(1)+omega0_1*(ifloquet-1-ndim_F))*tt)&
+          * zpsi_F_new(2*(ifloquet-1)+1:2*(ifloquet-1)+2,1)
+        zvec_new(1:2,2) = zvec_new(1:2,2) &
+          + exp(-zi*(eps_F_new(2)+omega0_1*(ifloquet-1-ndim_F))*tt)&
+          * zpsi_F_new(2*(ifloquet-1)+1:2*(ifloquet-1)+2,2)
+
+        zvec(1:2,1) = zvec(1:2,1) &
+          + exp(-zi*(eps_F(1)+omega0_1*(ifloquet-1-ndim_F))*tt)&
+          * zpsi_F(2*(ifloquet-1)+1:2*(ifloquet-1)+2,1)
+        zvec(1:2,2) = zvec(1:2,2) &
+          + exp(-zi*(eps_F(2)+omega0_1*(ifloquet-1-ndim_F))*tt)&
+          * zpsi_F(2*(ifloquet-1)+1:2*(ifloquet-1)+2,2)
+        
+        zvec_old(1:2,1) = zvec_old(1:2,1) &
+          + exp(-zi*(eps_F_old(1)+omega0_1*(ifloquet-1-ndim_F))*tt)&
+          * zpsi_F_old(2*(ifloquet-1)+1:2*(ifloquet-1)+2,1)
+        zvec_old(1:2,2) = zvec_old(1:2,2) &
+          + exp(-zi*(eps_F_old(2)+omega0_1*(ifloquet-1-ndim_F))*tt)&
+          * zpsi_F_old(2*(ifloquet-1)+1:2*(ifloquet-1)+2,2)
+      end do
+      zdvec = 0.5d0/dt*(zvec_new-zvec_old)
+
+      zUvec = 0d0
+      zUvec(2:3,2:3) = zvec(1:2,1:2)
+      zUvec(1,1) = exp(-zi*(-0.5d0*Egap*tt))
+
+      H12 = kick_strength_floquet*d_12
+      zham_org = 0d0
+      zham_org(1,2) = H12
+      zham_org(2,1) = H12
+
+      zham_eff = matmul(transpose(conjg(zUvec)),matmul(zham_org,zUvec))    
+      ! Start: Floquet projection
+      !  zham_eff(1,3) = 0d0 ! turn off dark exciton
+      !  zham_eff(3,1) = 0d0 ! turn off dark exciton
+      ! End:   Floquet projection 
+      zham_eff(2,3) = zham_eff(2,3) ! -zi*sum(conjg(zvec(:,1))*zdvec(:,2))
+      zham_eff(3,2) = conjg(zham_eff(2,3))
+
+      zham_org = matmul(zUvec,matmul(zham_eff,transpose(conjg(zUvec))))
+      zrho_t = matmul(zham_org,zrho_dm)-matmul(zrho_dm,zham_org)
+      zrho_dm = zrho_dm -zi*zrho_t
+ 
+
+    end subroutine floquet_impulsive_distortion
 
 end subroutine dt_evolve_floquet
 !-------------------------------------------------------------------------------
