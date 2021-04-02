@@ -58,8 +58,8 @@ program main
   call input
   call initialize
 !  call time_propagation
-!  call time_propagation_floquet_decomp
-  call time_propagation_dressed_states_decomp
+  call time_propagation_floquet_decomp
+!  call time_propagation_dressed_states_decomp
 
 end program main
 !-------------------------------------------------------------------------------
